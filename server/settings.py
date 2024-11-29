@@ -1,7 +1,20 @@
-from ayon_server.settings import BaseSettingsModel
+from ayon_server.settings import BaseSettingsModel, SettingsField
 
-DEFAULT_VALUES = {}
+from .imageio import LokiImageIOModel
+
+DEFAULT_VALUES = {
+    "imageio": {
+        "activate_host_color_management": True,
+        "file_rules": {
+            "enabled": False,
+            "rules": []
+        }
+    },
+}
 
 
-class MySettings(BaseSettingsModel):
-    pass
+class LokiSettings(BaseSettingsModel):
+    imageio: LokiImageIOModel = SettingsField(
+        default_factory=LokiImageIOModel,
+        title="Color Management (ImageIO)"
+    )
