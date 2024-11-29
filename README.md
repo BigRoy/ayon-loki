@@ -1,3 +1,3 @@
 # Loki Addon
 
-ShapeFX Loki addon integration for AYON.
+[ShapeFX Loki](https://shapefx.app/) addon integration for [AYON](https://ynput.io/ayon/).
