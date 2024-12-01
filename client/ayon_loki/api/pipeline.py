@@ -8,7 +8,7 @@ from ayon_core.host import HostBase, IWorkfileHost, ILoadHost, IPublishHost
 from ayon_core.pipeline import (
     register_loader_plugin_path,
     register_creator_plugin_path,
-    AYON_CONTAINER_ID,
+    AYON_CONTAINER_ID, get_current_context,
 )
 from ayon_core.tools.utils import host_tools
 
@@ -48,58 +48,52 @@ def defer(fn):
     QtCore.QTimer.singleShot(0, fn)
 
 
+def get_current_context_label() -> str:
+    # Return folder path, task name
+    context = get_current_context()
+    folder_path = context["folder_path"]
+    task_name = context["task_name"]
+    return f"{folder_path}, {task_name}"
+
+
 def install_menu():
-    window = lib.get_main_window()
-    menubar = window.menuBar()
+    main_window = lib.get_main_window()
+    menubar = main_window.menuBar()
 
     menu = menubar.addMenu("AYON")
 
-    # TODO: Connect to actual AYON UIs
-    parent_widget = window
-    # cmds.menuItem(
-    #     "Work Files...",
-    #     command=lambda *args: host_tools.show_workfiles(
-    #         parent=parent_widget
-    #     ),
-    # )
-    # )
-    #
-    # cmds.menuItem(
-    #     "Experimental tools...",
-    #     command=lambda *args: host_tools.show_experimental_tools_dialog(
-    #         parent_widget
-    #     )
-    # )
-
-
     # Current context
     menu.addSection("Context")
-    menu.addAction("/asset/char_hero, modeling")
+    context_action = menu.addAction("<context>")
+
+    def _update_context_label():
+        context_action.setText(get_current_context_label())
+    menu.aboutToShow.connect(_update_context_label)
 
     # Tools
     menu.addSection("Tools")
     menu.addAction(
         "Create...",
         lambda: host_tools.show_publisher(
-            parent=parent_widget,
+            parent=main_window,
             tab="create"
         )
     )
     menu.addAction(
         "Load...",
         lambda: host_tools.show_loader(
-            parent=parent_widget,
+            parent=main_window,
             use_context=True
         )
     )
     menu.addAction(
         "Manage...",
-        lambda: host_tools.show_scene_inventory(parent=parent_widget)
+        lambda: host_tools.show_scene_inventory(parent=main_window)
     )
     menu.addAction(
         "Publish...",
         lambda: host_tools.show_publisher(
-            parent=parent_widget,
+            parent=main_window,
             tab="publish"
         )
     )
@@ -108,7 +102,7 @@ def install_menu():
     menu.addSection("Workfiles")
     menu.addAction(
         "Workfiles",
-        lambda: host_tools.show_workfiles(parent=parent_widget)
+        lambda: host_tools.show_workfiles(parent=main_window)
     )
     menu.addAction("Set Frame Range")
     menu.addAction("Set Colorspace")
@@ -116,7 +110,7 @@ def install_menu():
     menu.addSection("Experimental")
     menu.addAction(
         "Experimental Tools...",
-        lambda: host_tools.show_experimental_tools_dialog(parent=parent_widget)
+        lambda: host_tools.show_experimental_tools_dialog(parent=main_window)
     )
 
 
@@ -254,7 +248,7 @@ def containerise(name,
         suffix (str, optional): Suffix of container, defaults to `_CON`.
 
     Returns:
-        container (c4d.BaseObject): OSelection BaseObject container
+        container (Usd.Prim): USD Primitive representing the container
 
     """
     pass
@@ -301,7 +295,7 @@ def imprint_container(
     """Imprints an object with container metadata and hides it from the user
     by adding it into a hidden layer.
     Arguments:
-        container (c4d.BaseObject): The object to imprint.
+        container (Usd.Prim): The object to imprint.
         name (str): Name of resulting assembly
         namespace (str): Namespace under which to host container
         context (dict): Asset information
