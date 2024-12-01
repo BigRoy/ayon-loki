@@ -2,6 +2,7 @@
 import contextlib
 
 from ayon_core.lib import NumberDef
+from ayon_core.pipeline.context_tools import get_current_task_entity
 
 from pxr import Usd
 
@@ -95,3 +96,25 @@ def maintained_selection():
         yield
     finally:
         opendcc.cmds.select(selection, replace=True)
+
+
+def reset_frame_range():
+    task_entity = get_current_task_entity()
+
+    frame_start = task_entity["attrib"]["frameStart"]
+    frame_end = task_entity["attrib"]["frameEnd"]
+    handle_start = task_entity["attrib"]["handleStart"]
+    handle_end = task_entity["attrib"]["handleEnd"]
+    fps = task_entity["attrib"]["fps"]
+    frame_start_handle = frame_start - handle_start
+    frame_end_handle = frame_end + handle_end
+
+    stage = get_current_stage()
+
+    stage.SetStartTimeCode(frame_start_handle)
+    stage.SetEndTimeCode(frame_end_handle)
+    stage.SetFramesPerSecond(fps)
+
+    # Set custom metadata specific to Loki for internal animation frame range
+    stage.SetMetadata("minTimeCode", frame_start)
+    stage.SetMetadata("maxTimeCode", frame_end)
