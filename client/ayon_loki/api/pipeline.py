@@ -105,7 +105,7 @@ def install_menu():
         lambda: host_tools.show_workfiles(parent=main_window)
     )
     menu.addAction("Set Frame Range", lib.reset_frame_range)
-    menu.addAction("Set Colorspace")
+    # menu.addAction("Set Colorspace")  # TODO: Implement
 
     menu.addSection("Experimental")
     menu.addAction(
