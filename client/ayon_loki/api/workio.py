@@ -74,4 +74,9 @@ def current_file() -> Optional[str]:
     stage = get_current_stage()
     if not stage:
         return
-    return stage.GetRootLayer().identifier
+
+    layer = stage.GetRootLayer()
+    if layer.anonymous:
+        return
+
+    return layer.identifier
