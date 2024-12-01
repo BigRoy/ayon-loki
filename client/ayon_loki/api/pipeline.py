@@ -36,6 +36,7 @@ INVENTORY_PATH = os.path.join(PLUGINS_DIR, "inventory")
 
 AYON_CONTAINERS = lib.AYON_CONTAINERS
 AYON_CONTEXT_CREATOR_IDENTIFIER = "io.ayon.create.context"
+AYON_CONTEXT_DATA_KEY = "AYON_Context"
 
 
 def defer(fn):
@@ -159,34 +160,25 @@ class LokiHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
             yield
 
     def update_context_data(self, data, changes):
-        """
         if not data:
             return
 
-        context_node = self._get_context_node(create_if_not_exists=True)
-        data["id"] = plugin.AYON_INSTANCE_ID
-        data["creator_identifier"] = AYON_CONTEXT_CREATOR_IDENTIFIER
-        lib.imprint(context_node, data)
-        """
-        # TODO: Implement
-        return
+        stage = lib.get_current_stage()
+        if not stage:
+            return
+
+        root_layer = stage.GetRootLayer()
+        layer_data = root_layer.customLayerData
+        layer_data[AYON_CONTEXT_DATA_KEY] = data
+        root_layer.customLayerData = layer_data
 
     def get_context_data(self):
-        """
-        context_node = self._get_context_node()
-        if context_node is None:
+        stage = lib.get_current_stage()
+        if not stage:
             return {}
 
-        data = lib.read(context_node)
-
-        # Pop our custom data that we use to find the node again
-        data.pop("id", None)
-        data.pop("creator_identifier", None)
-
-        return data
-        """
-        # TODO: Implement
-        return {}
+        root_layer = stage.GetRootLayer()
+        return root_layer.customLayerData.get(AYON_CONTEXT_DATA_KEY, {})
 
 
 def parse_container(container):
