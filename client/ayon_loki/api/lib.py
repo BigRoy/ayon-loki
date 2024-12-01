@@ -4,7 +4,7 @@ import contextlib
 from ayon_core.lib import NumberDef
 from ayon_core.pipeline.context_tools import get_current_task_entity
 
-from pxr import Usd
+from pxr import Sdf, Usd
 
 import opendcc.core
 
@@ -116,5 +116,5 @@ def reset_frame_range():
     stage.SetFramesPerSecond(fps)
 
     # Set custom metadata specific to Loki for internal animation frame range
-    stage.SetMetadata("minTimeCode", frame_start)
-    stage.SetMetadata("maxTimeCode", frame_end)
+    stage.SetMetadata("minTimeCode", Sdf.TimeCode(frame_start))
+    stage.SetMetadata("maxTimeCode", Sdf.TimeCode(frame_end))
