@@ -1,6 +1,7 @@
 import os
 import logging
 import contextlib
+from typing import Any
 
 import pyblish.api
 
@@ -8,7 +9,8 @@ from ayon_core.host import HostBase, IWorkfileHost, ILoadHost, IPublishHost
 from ayon_core.pipeline import (
     register_loader_plugin_path,
     register_creator_plugin_path,
-    AYON_CONTAINER_ID, get_current_context,
+    AYON_CONTAINER_ID,
+    get_current_context,
 )
 from ayon_core.tools.utils import host_tools
 
@@ -22,6 +24,7 @@ from .workio import (
 import ayon_loki
 
 from qtpy import QtCore
+from pxr import Sdf, Usd
 
 from . import lib
 
@@ -181,43 +184,64 @@ class LokiHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
         return root_layer.customLayerData.get(AYON_CONTEXT_DATA_KEY, {})
 
 
-def parse_container(container):
-    """Return the container node's full container data.
-
-    Args:
-        container (str): A container node name.
-
-    Returns:
-        dict[str, Any]: The container schema data for this container node.
-
-    """
-    return {}
-    # TODO: Implement
-    # data = lib.read(container)
-    #
-    # # Backwards compatibility pre-schemas for containers
-    # data["schema"] = data.get("schema", "ayon:container-3.0")
-    #
-    # # Append transient data
-    # data["objectName"] = container.GetName()
-    # data["node"] = container
-    #
-    # return data
-
-
-def iter_containers(doc=None):
+def iter_containers():
     """Yield all objects in the active document that have 'id' attribute set
     matching an AYON container ID"""
-    if False:
-        yield
-    return
-    # TODO: Implement
-    # for container in containers:
-    #     if container_id != AYON_CONTAINER_ID:  # noqa
-    #         continue
-    #
-    #     data = parse_container(container)
-    #     yield data
+
+    stage = lib.get_current_stage()
+    if not stage:
+        return
+
+    # Iterate all "local scene layers" which we'll consider to be the root
+    # layer and any sublayers. We do not traverse into references or payloads
+    # assuming they are completely external.
+    root_layer = stage.GetRootLayer()
+    layers: list[Sdf.Layer] = [root_layer] + list(root_layer.subLayerPaths)
+    for layer in layers:
+        containers: list[dict[str, Any]] = []
+
+        def _collect_containers(path: Sdf.Path):
+            spec = layer.GetObjectAtPath(path)
+
+            # Check for AYON metadata on property specs
+            if isinstance(spec, Sdf.PropertySpec):
+                data = spec.customData.get("AYON", {})
+                if data.get("id") != AYON_CONTAINER_ID:
+                    return
+
+                spec_container = data
+                spec_container["spec"] = spec
+
+                # TODO: Are these required values?
+                spec_container["objectName"] = spec.name
+                spec_container["namespace"] = path.pathString
+                spec_container["name"] = layer.identifier
+
+                containers.append(spec_container)
+
+            if isinstance(spec, Sdf.PrimSpec):
+                # Query references for potential containers from their metadata
+
+                for key in lib.USD_LIST_ATTRS:
+                    for ref in getattr(spec.referenceList, key):
+                        data = ref.customData.get("AYON", {})
+                        if data.get("id") != AYON_CONTAINER_ID:
+                            continue
+
+                        spec_container = data
+                        spec_container["spec"] = spec
+                        spec_container["reference"] = ref
+
+                        # TODO: Are these required values?
+                        spec_container["objectName"] = spec.name
+                        spec_container["namespace"] = path.pathString
+                        spec_container["name"] = layer.identifier
+
+                        containers.append(spec_container)
+
+        layer.Traverse("/", _collect_containers)
+        for container in containers:
+            yield container
 
 
 def containerise(name,
@@ -243,38 +267,8 @@ def containerise(name,
         container (Usd.Prim): USD Primitive representing the container
 
     """
+    # TODO: Implement
     pass
-    # container_name = lib.get_unique_namespace(
-    #     name,
-    #     prefix=namespace + "_",
-    #     suffix=suffix
-    # )
-    # with lib.undo_chunk():
-    #     container = c4d.BaseObject(c4d.Oselection)
-    #     container.SetName(container_name)
-    #     in_exclude_data = container[c4d.SELECTIONOBJECT_LIST]
-    #     for node in nodes:
-    #         in_exclude_data.InsertObject(node, 1)
-    #     container[c4d.SELECTIONOBJECT_LIST] = in_exclude_data
-    #     doc = lib.active_document()
-    #     doc.InsertObject(container)
-    #
-    #     imprint_container(
-    #         container,
-    #         name,
-    #         namespace,
-    #         context,
-    #         loader
-    #     )
-    #
-    #     # Add the container to the AYON_CONTAINERS layer
-    #     avalon_layer = get_containers_layer(doc=doc)
-    #     container.SetLayerObject(avalon_layer)
-    #     # Hide the container in the Object Manager
-    #     # container.ChangeNBit(c4d.NBIT_OHIDE, c4d.NBITCONTROL_SET)
-    #     c4d.EventAdd()
-    #
-    # return container
 
 
 def imprint_container(
@@ -302,5 +296,15 @@ def imprint_container(
         "representation": context["representation"]["id"],
         "project_name": context["project"]["name"],
     }
-    # TODO: implement
+
+    # Use custom data of a property if we can
+    if isinstance(container, Usd.Property):
+        custom_data = container.GetCustomData()
+        custom_data["AYON"] = data
+        container.SetCustomData(custom_data)
+        return True
+
+    # TODO: implement imprinting prim
     # lib.imprint(container, data, group="AYON")
+
+    return False

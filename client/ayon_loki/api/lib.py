@@ -11,6 +11,16 @@ import opendcc.core
 AYON_CONTAINERS = "AYON_CONTAINERS"
 JSON_PREFIX = "JSON::"
 
+# USD ReferenceList/PayloadList keys
+USD_LIST_ATTRS = [
+    "addedItems", 
+    "appendedItems", 
+    "deletedItems", 
+    "explicitItems",
+    "orderedItems", 
+    "prependedItems"
+]
+
 
 def get_session() -> opendcc.core.Session:
     app = opendcc.core.Application.instance()
@@ -118,3 +128,64 @@ def reset_frame_range():
     # Set custom metadata specific to Loki for internal animation frame range
     stage.SetMetadata("minTimeCode", Sdf.TimeCode(frame_start))
     stage.SetMetadata("maxTimeCode", Sdf.TimeCode(frame_end))
+
+
+def unique_path(stage: Usd.Stage, prim_path: Sdf.Path) -> Sdf.Path:
+    """Return Sdf.Path that is unique under the current composed stage.
+
+    Note that this technically does not ensure that the Sdf.Path does not
+    exist in any of the layers, e.g. it could be defined within a currently
+    unselected variant or a muted layer.
+
+    """
+    src = prim_path.pathString.rstrip("123456789")
+    i = 1
+    while stage.GetPrimAtPath(prim_path):
+        prim_path = Sdf.Path(f"{src}{i}")
+        i += 1
+    return prim_path
+
+
+def remove_prim(prim: Usd.Prim):
+    specs = prim.GetPrimStack()
+    with Sdf.ChangeBlock():
+        for spec in specs:
+            if spec.expired:
+                continue
+
+            # Warning: This would also remove it from layers from
+            #   references/payloads!
+            # TODO: Filter specs for which their `.getLayer()` is a layer
+            #   from the Stage's layer stack?
+            remove_spec(spec)
+
+
+def remove_spec(spec):
+    """Remove Sdf.Spec authored opinion."""
+    if spec.expired:
+        return
+
+    if isinstance(spec, Sdf.PrimSpec):
+        # PrimSpec
+        parent = spec.nameParent
+        if parent:
+            view = parent.nameChildren
+        else:
+            # Assume PrimSpec is root prim
+            view = spec.layer.rootPrims
+        del view[spec.name]
+
+    elif isinstance(spec, Sdf.PropertySpec):
+        # Relationship and Attribute specs
+        del spec.owner.properties[spec.name]
+
+    elif isinstance(spec, Sdf.VariantSetSpec):
+        # Owner is Sdf.PrimSpec (or can also be Sdf.VariantSpec)
+        del spec.owner.variantSets[spec.name]
+
+    elif isinstance(spec, Sdf.VariantSpec):
+        # Owner is Sdf.VariantSetSpec
+        spec.owner.RemoveVariant(spec)
+
+    else:
+        raise TypeError(f"Unsupported spec type: {spec}")
