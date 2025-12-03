@@ -121,9 +121,6 @@ def install_menu():
 class LokiHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
     name = "loki"
 
-    def __init__(self):
-        super(LokiHost, self).__init__()
-
     def install(self):
         # process path mapping
         # dirmap_processor = LokiDirmap("loki", project_settings)
