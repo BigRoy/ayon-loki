@@ -12,7 +12,8 @@ class LoadOpenVDBAsset(plugin.LokiLoader):
     icon = "cloud"
     label = "Load OpenVDB Asset"
     order = -10
-    representations = {"vdb"}
+    representations = {"*"}
+    extensions = {"vdb"}
 
     def load(self, context, name=None, namespace=None, options=None):
 

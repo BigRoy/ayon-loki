@@ -12,7 +12,8 @@ class ReferenceLoader(plugin.LokiLoader):
     icon = "code-fork"
     label = "Load Reference"
     order = -10
-    representations = {"usd", "abc"}
+    representations = {"*"}
+    extensions = {"usd", "usda", "usdc", "abc"}
 
     def load(self, context, name=None, namespace=None, options=None):
 
